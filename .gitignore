@@ -1,6 +1,8 @@
-lecture*
+﻿lecture*
 data
 Antispam*
 text-*
 .ipynb*
 *.DS_Store
+index*
+content
