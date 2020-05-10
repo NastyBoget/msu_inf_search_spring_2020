@@ -6,3 +6,7 @@ text-*
 *.DS_Store
 index*
 content
+kaggle.json
+sample*
+text_relevance.csv
+urls.numerate.txt
