@@ -4,9 +4,12 @@ Antispam*
 text-*
 .ipynb*
 *.DS_Store
-index*
 content
 kaggle.json
 sample*
 text_relevance.csv
 urls.numerate.txt
+parsed
+result.txt
+__pycache__
+.~*
