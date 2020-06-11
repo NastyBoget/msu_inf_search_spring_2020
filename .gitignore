@@ -1,5 +1,4 @@
-﻿lecture*
-data
+﻿data
 Antispam*
 text-*
 .ipynb*
@@ -13,3 +12,4 @@ parsed
 result.txt
 __pycache__
 .~*
+*.idea
