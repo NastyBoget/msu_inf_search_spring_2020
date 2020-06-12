@@ -63,7 +63,8 @@ class LanguageModel:
         self.unigram_default_probability = 1 / self.unigram_number
         self.bigram_default_probability = 1 / self.bigram_number
 
-    # compute probability of the query P(
+    # compute probability of the query
+    # P(query) = P(w_1, ..., w_n) = P(w_1|w_2) * P(w_2|w_3) * ... * P(w_n)
     def get_probability(self, query):
         words = split(query)
         len_words = len(words)
