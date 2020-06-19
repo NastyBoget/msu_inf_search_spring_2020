@@ -48,11 +48,10 @@ class LanguageModel:
                 len_words = len(words)
                 for i in range(len_words):
                     self.unigram_probabilities[words[i]] += 1
+                    self.unigram_number += 1
                     if i < len_words - 1:
                         self.bigram_probabilities[(words[i], words[i + 1])] += 1
-
-        self.unigram_number = len(self.unigram_probabilities)
-        self.bigram_number = len(self.bigram_probabilities)
+                        self.bigram_number += 1
 
         for i in self.unigram_probabilities:
             self.unigram_probabilities[i] /= self.unigram_number
@@ -87,16 +86,16 @@ class LanguageModel:
 
     def to_json(self, filename1, filename2):
         with open(filename1, "w") as write_file:
-            json.dump(self.unigram_probabilities, write_file)
+            write_file.write(json.dumps((self.unigram_number, self.unigram_probabilities)))
         with open(filename2, "w") as write_file:
-            json.dump(self.bigram_probabilities, write_file)
+            write_file.write(json.dumps((self.bigram_number, self.bigram_probabilities)))
 
     def from_json(self, filename1, filename2):
+
         with open(filename1, "r") as read_file:
-            self.unigram_probabilities = json.load(read_file)
+            (self.unigram_number, self.unigram_probabilities) = json.loads(read_file.read())
         with open(filename2, "r") as read_file:
-            self.bigram_probabilities = json.load(read_file)
-        self.unigram_number = len(self.unigram_probabilities)
-        self.bigram_number = len(self.bigram_probabilities)
+            (self.bigram_number, self.bigram_probabilities) = json.loads(read_file.read())
+
         self.unigram_default_probability = 1 / self.unigram_number
         self.bigram_default_probability = 1 / self.bigram_number

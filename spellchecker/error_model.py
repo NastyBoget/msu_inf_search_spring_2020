@@ -1,4 +1,4 @@
-# Bigram statistics
+# Bigram statistics for error model
 
 from collections import defaultdict
 import numpy as np
@@ -11,9 +11,11 @@ class ErrorModel:
 
     def __init__(self, filename):
 
-        # dictionary = {("right_bigram", "wrong_bigram") : probability_of_bigram}
+        # dictionary = {("wrong_bigram", "right_bigram") : probability_of_right_bigram_for_this_wrong_bigram}
+        # probability_of_right_bigram = number_of_(right, wrong) / sum_of_all_fixes_for_this_wrong
         self.bigram_probabilities = defaultdict(float)
 
+        # sum of all fixes
         self.bigram_number = 0
 
         self.bigram_default_probability = 0
@@ -33,19 +35,32 @@ class ErrorModel:
                 if len(wrong) != len(right):  # join or split
                     continue
                 for i in range(len(wrong)):
-                    self.add_bigrams(right[i], wrong[i])
+                    self.add_bigrams(wrong[i], right[i])
 
         self.bigram_default_probability = 1 / self.bigram_number
-        self.bigram_number = len(self.bigram_probabilities)
-        for i in self.bigram_probabilities:
-            self.bigram_probabilities[i] /= self.bigram_number
 
-    def add_bigrams(self, right, wrong):
+        self.bigram_probabilities = sorted(self.bigram_probabilities)
+        # division by sum of fixes for wrong bigram
+        prev_wrong = ''
+        current_fixes = {}
+        for wrong_bigram, right_bigram in self.bigram_probabilities:
+            if wrong_bigram != prev_wrong:
+                for w, r in current_fixes:
+                    self.bigram_probabilities[(w, r)] /= sum(current_fixes.values())
+                prev_wrong = wrong_bigram
+                current_fixes = {(wrong_bigram, right_bigram): self.bigram_probabilities[(wrong_bigram, right_bigram)]}
+            else:
+                current_fixes[(wrong_bigram, right_bigram)] = self.bigram_probabilities[(wrong_bigram, right_bigram)]
+        for w, r in current_fixes:
+            self.bigram_probabilities[(w, r)] /= sum(current_fixes.values())
 
+    def add_bigrams(self, wrong, right):
+
+        self.bigram_number += 1
         # add special characters for indicating the beginning and the end of the word
         # use double characters for separating bigrams
-        wrong = "".join(list(map(lambda z: "".join(z), ngrams('^' + wrong + '_', 2))))
-        right = "".join(list(map(lambda z: "".join(z), ngrams('^' + right + '_', 2))))
+        wrong = ErrorModel.bigram_string(wrong)
+        right = ErrorModel.bigram_string(right)
         # levenshtein matrix for two words of the query
         # first word is horizontal, second - vertical
         matrix = levenshtein_distance(right, wrong, result='matrix')
@@ -56,7 +71,7 @@ class ErrorModel:
         # if next position is from the left -> add character (1)
         # if the next position is diagonally -> replace character (2)
         x, y = len(wrong), len(right)
-        while x not in [0, 1] and y not in [0, 1]:
+        while x != 0 or y != 0:
             right_bigram, wrong_bigram = np.array((2, 0), dtype=str), np.array((2, 0), dtype=str)
             for i in range(1, -1, -1):  # we have even amount of characters
                 paths = np.array([matrix[x - 1, y], matrix[x, y - 1], matrix[x - 1, y - 1]])
@@ -97,14 +112,49 @@ class ErrorModel:
                 y -= 1
             right_bigram = right_bigram[0] + right_bigram[1]
             wrong_bigram = wrong_bigram[0] + wrong_bigram[1]
-            self.bigram_probabilities[(right_bigram, wrong_bigram)] += 1
+            self.bigram_probabilities[(wrong_bigram, right_bigram)] += 1
 
     def to_json(self, filename):
         with open(filename, "w") as write_file:
-            json.dump(self.bigram_probabilities, write_file)
+            write_file.write(json.dumps((self.bigram_number, self.bigram_probabilities)))
 
     def from_json(self, filename):
         with open(filename, "r") as read_file:
-            self.bigram_probabilities = json.load(read_file)
-        self.bigram_number = len(self.bigram_probabilities)
+            (self.bigram_number, self.bigram_probabilities) = json.loads(read_file.read())
         self.bigram_default_probability = 1 / self.bigram_number
+
+    # return probability of this fix
+    def get_probability(self, wrong, right):
+
+        if right == wrong:
+            return 1
+
+        if (wrong, right) in self.bigram_probabilities:
+            return self.bigram_probabilities[(wrong, right)]
+        return 1 / 200
+
+    def get_weighted_distance(self, wrong, right):
+
+        m, n = len(right), len(wrong)
+        str1 = ErrorModel.bigram_string(right)
+        str2 = ErrorModel.bigram_string(wrong)
+        # now len(str1) = 2 * (m + 1), len(str2) = 2 * (n + 1)
+
+        d = np.vstack((np.arange(m + 2)[np.newaxis],
+                       np.hstack((np.arange(1, n + 2)[:, np.newaxis], np.zeros((n + 1, m + 1))))))
+
+        for i in range(0, 2 * (m + 1), 2):
+            for j in range(0, 2 * (n + 1), 2):
+                weights = np.array([self.get_probability(str2[j:j + 2], '~' + str1[i + 1]),  # delete
+                                    self.get_probability('~' + str2[j + 1], str1[i:i + 2]),  # add
+                                    self.get_probability(str2[j:j + 2], str1[i:i + 2])])  # replace
+                d[j // 2 + 1, i // 2 + 1] = np.min(np.array([d[j // 2, i // 2 + 1] + 1,  # delete
+                                                             d[j // 2 + 1, i // 2] + 1,  # add
+                                                             d[j // 2, i // 2] + int(str1[i] != str2[j])])  # replace
+                                                   + (1 / weights))
+
+        return d[n + 1, m + 1]
+
+    @staticmethod
+    def bigram_string(string, ngram=2):
+        return "".join(list(map(lambda z: "".join(z), ngrams('^' + string + '_', ngram))))
