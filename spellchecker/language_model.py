@@ -12,7 +12,7 @@ from utils import split
 
 class LanguageModel:
 
-    def __init__(self, filename):
+    def __init__(self):
 
         # dictionary = {"word": probability_of_word}, contains P(w_i) for unigram model
         self.unigram_probabilities = defaultdict(float)
@@ -32,13 +32,10 @@ class LanguageModel:
         self.unigram_default_probability = 0
         self.bigram_default_probability = 0
 
-        # name of the file with queries
-        self.filename = filename
-
     # computing unigram and bigram probabilities
-    def fit(self):
+    def fit(self, filename):
 
-        with open(self.filename, "r") as file:
+        with open(filename, "r") as file:
             for line in file:
                 ind = line.find('\t')
                 if ind != -1:

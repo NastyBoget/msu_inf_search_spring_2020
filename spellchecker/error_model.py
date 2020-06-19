@@ -9,7 +9,7 @@ from utils import split, levenshtein_distance
 
 class ErrorModel:
 
-    def __init__(self, filename):
+    def __init__(self):
 
         # dictionary = {("wrong_bigram", "right_bigram") : probability_of_right_bigram_for_this_wrong_bigram}
         # probability_of_right_bigram = number_of_(right, wrong) / sum_of_all_fixes_for_this_wrong
@@ -20,11 +20,9 @@ class ErrorModel:
 
         self.bigram_default_probability = 0
 
-        self.filename = filename
+    def fit(self, filename):
 
-    def fit(self):
-
-        with open(self.filename, "r") as file:
+        with open(filename, "r") as file:
             for line in file:
                 ind = line.find('\t')
                 # it's correct query
