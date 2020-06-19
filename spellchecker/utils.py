@@ -35,4 +35,6 @@ def split(line):
             if word:
                 split_line.append(word)
                 word = ''
+    if word:
+        split_line.append(word)
     return split_line

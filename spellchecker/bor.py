@@ -128,4 +128,4 @@ class BorTree:
     def get_error(self, wrong, right):
         if wrong == right:
             return 0
-        return 1 / self.error_model.get_probability(wrong, right)
+        return 1 / self.error_model.get_probability(wrong, right, unigram=True)

@@ -15,10 +15,16 @@ class ErrorModel:
         # probability_of_right_bigram = number_of_(right, wrong) / sum_of_all_fixes_for_this_wrong
         self.bigram_probabilities = defaultdict(float)
 
+        self.unigram_probabilities = defaultdict(float)
+
         # sum of all fixes
         self.bigram_number = 0
 
         self.bigram_default_probability = 0
+
+        self.unigram_number = 0
+
+        self.unigram_default_probability = 0
 
     def fit(self, filename):
 
@@ -33,28 +39,35 @@ class ErrorModel:
                 if len(wrong) != len(right):  # join or split
                     continue
                 for i in range(len(wrong)):
-                    self.add_bigrams(wrong[i], right[i])
+                    self.add_ngrams(wrong[i], right[i])
 
+        self.unigram_default_probability = 1 / self.unigram_number
         self.bigram_default_probability = 1 / self.bigram_number
 
+        self.unigram_probabilities = sorted(self.unigram_probabilities)
+        self.normalize(self.unigram_probabilities)
+
         self.bigram_probabilities = sorted(self.bigram_probabilities)
-        # division by sum of fixes for wrong bigram
+        self.normalize(self.bigram_probabilities)
+
+    def normalize(self, statistics):  # division by sum of fixes for wrong bigram
         prev_wrong = ''
         current_fixes = {}
-        for wrong_bigram, right_bigram in self.bigram_probabilities:
+        for wrong_bigram, right_bigram in statistics:
             if wrong_bigram != prev_wrong:
+                s = sum(current_fixes.values())
                 for w, r in current_fixes:
-                    self.bigram_probabilities[(w, r)] /= sum(current_fixes.values())
+                    statistics[(w, r)] /= s
                 prev_wrong = wrong_bigram
-                current_fixes = {(wrong_bigram, right_bigram): self.bigram_probabilities[(wrong_bigram, right_bigram)]}
+                current_fixes = {(wrong_bigram, right_bigram): statistics[(wrong_bigram, right_bigram)]}
             else:
-                current_fixes[(wrong_bigram, right_bigram)] = self.bigram_probabilities[(wrong_bigram, right_bigram)]
+                current_fixes[(wrong_bigram, right_bigram)] = statistics[(wrong_bigram, right_bigram)]
+        s = sum(current_fixes.values())
         for w, r in current_fixes:
-            self.bigram_probabilities[(w, r)] /= sum(current_fixes.values())
+            statistics[(w, r)] /= s
 
-    def add_bigrams(self, wrong, right):
+    def add_ngrams(self, wrong, right):
 
-        self.bigram_number += 1
         # add special characters for indicating the beginning and the end of the word
         # use double characters for separating bigrams
         wrong = ErrorModel.bigram_string(wrong)
@@ -111,25 +124,43 @@ class ErrorModel:
             right_bigram = right_bigram[0] + right_bigram[1]
             wrong_bigram = wrong_bigram[0] + wrong_bigram[1]
             self.bigram_probabilities[(wrong_bigram, right_bigram)] += 1
+            self.bigram_number += 1
 
-    def to_json(self, filename):
-        with open(filename, "w") as write_file:
+            self.unigram_probabilities[(wrong_bigram[0], right_bigram[0])] += 1
+            self.unigram_probabilities[(wrong_bigram[1], right_bigram[1])] += 1
+            self.unigram_number += 1
+
+
+    def to_json(self, filename1, filename2):
+        with open(filename1, "w") as write_file:
+            write_file.write(json.dumps((self.unigram_number, self.unigram_probabilities)))
+        with open(filename2, "w") as write_file:
             write_file.write(json.dumps((self.bigram_number, self.bigram_probabilities)))
 
-    def from_json(self, filename):
-        with open(filename, "r") as read_file:
+    def from_json(self, filename1, filename2):
+        with open(filename1, "r") as read_file:
+            (self.unigram_number, self.unigram_probabilities) = json.loads(read_file.read())
+        with open(filename2, "r") as read_file:
             (self.bigram_number, self.bigram_probabilities) = json.loads(read_file.read())
+        self.unigram_default_probability = 1 / self.unigram_number
         self.bigram_default_probability = 1 / self.bigram_number
 
     # return probability of this fix
-    def get_probability(self, wrong, right):
+    def get_probability(self, wrong, right, unigram=False):
 
         if right == wrong:
             return 1
 
-        if (wrong, right) in self.bigram_probabilities:
-            return self.bigram_probabilities[(wrong, right)]
-        return 1 / 200
+        if unigram:
+            if (wrong, right) in self.unigram_probabilities:
+                return self.unigram_probabilities[(wrong, right)]
+            else:
+                return self.unigram_default_probability
+        else:
+            if (wrong, right) in self.bigram_probabilities:
+                return self.bigram_probabilities[(wrong, right)]
+            else:
+                return self.bigram_default_probability
 
     def get_weighted_distance(self, wrong, right):
 
