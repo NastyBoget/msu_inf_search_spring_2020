@@ -1,25 +1,19 @@
-from language_model import LanguageModel
-from error_model import ErrorModel
 from bor import BorTree
+from language_model import LanguageModel
+from utils import save_obj
+from error_model import ErrorModel
+import sys
 
-queries_filename = 'queries_all.txt'
-language_model_unigrams_filename = 'models/language_model_unigrams.pkl'
-language_model_bigrams_filename = 'models/language_model_bigrams.pkl'
-error_model_unigrams_filename = 'models/error_model_unigrams.pkl'
-error_model_bigrams_filename = 'models/error_model_bigrams.pkl'
-tree_model_filename = 'models/tree_model.pkl'
+if __name__ == "__main__":
+    sys.setrecursionlimit(50000)
+    query_file = "queries_all.txt"
 
-model = LanguageModel()
-model.fit(queries_filename)
-model.save_model(language_model_unigrams_filename, language_model_bigrams_filename)
-print('language model saved')
+    print('language model is training')
+    lm = LanguageModel(query_file)
+    save_obj(lm, "LanguageModel")
 
-model = ErrorModel()
-model.fit(queries_filename)
-model.save_model(error_model_unigrams_filename, error_model_bigrams_filename)
-print('error model saved')
+    trie = BorTree(lm.dict.keys())
 
-model = BorTree()
-model.fit(language_model_unigrams_filename)
-model.save_model(tree_model_filename)
-print('bor tree saved')
+    print('\nerror model is training')
+    em = ErrorModel(trie, query_file)
+    save_obj(em, "ErrorModel")

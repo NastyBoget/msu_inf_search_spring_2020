@@ -1,95 +1,98 @@
-from bor import BorTree
-from error_model import ErrorModel
-from language_model import LanguageModel
-from indexer import language_model_unigrams_filename, language_model_bigrams_filename, \
-    error_model_unigrams_filename, error_model_bigrams_filename, tree_model_filename
-
-LOOP = 10
-ALPHA = 0.5
-REFLECT_POW = 1 / 5  # for small numbers
-e_model = ErrorModel()
-e_model.load_bigram(error_model_bigrams_filename)
-
-l_model = LanguageModel()
-l_model.load_unigram(language_model_unigrams_filename)
-l_model.load_bigram(language_model_bigrams_filename)
+from classifier.classifier import QueryClassifier
+from fixes.grammar import GrammarGenerator
+from fixes.join import JoinGenerator
+from fixes.layout import LayoutGenerator
+from fixes.split import SplitGenerator
+from utils import TextFormatter, load_obj
 
 
-def fix_score(_fix, distance, orig_popularity):
-    probability = l_model.get_probability(' '.join(_fix), smooth=REFLECT_POW)
-
-    print("{}: ---> P(orig|fix)={}, fix_pop={}, orig_pop={} |--> result={}".format(_fix,
-                                                                                   ALPHA * distance,
-                                                                                   probability,
-                                                                                   orig_popularity,
-                                                                                   ALPHA * distance *
-                                                                                   probability))
-    return ALPHA * distance * probability
+def fix_layout(layout, words, correction, probs):
+    changed_words = layout.generate_correction(words)
+    all_generation.append(changed_words)
+    formatted_query = textFormatter.format_text(changed_words)
+    if qc.is_correct(formatted_query, changed_words):
+        correction.append(formatted_query)
+        probs.append(lm.get_prob(changed_words))
 
 
-def query_str_popularity(_str):
-    probability = l_model.get_probability(_str, smooth=REFLECT_POW)
-    return probability
+def fix_grammar(grammar, words, correction, probs):
+    grammas = grammar.generate_correction(words)
+    for gramma in grammas:
+        all_generation.append(gramma)
+        formatted_query = textFormatter.format_text(gramma)
+        if qc.is_correct(formatted_query, gramma):
+            correction.append(formatted_query)
+            probs.append(lm.get_prob(gramma))
 
 
-def generate_fix_query(st_matrix):
-    query_dict = {}
-    min_key = 0
-
-    def add_query(local_score, string):
-        # находим цепочки с наибольшим score'ом
-        nonlocal min_key
-        if len(query_dict) <= QUERY_VARIANTS:
-            query_dict[local_score] = string
-            return
-        if local_score < min_key:
-            return
-        min_key = min(query_dict)
-        query_dict.pop(min_key)
-        query_dict[local_score] = string
-
-    def get_word_chain(string, local_score, index):
-        if index + 1 >= len(st_matrix):
-            add_query(local_score, string + [st_matrix[-1][0][0]])
-            return
-        for item in st_matrix[index]:
-            get_word_chain(string + [item[0]],
-                           local_score
-                           + l_model.get_probability(str(st_matrix[index][0][0]) + ' '
-                                                     + str(st_matrix[index + 1][0][0]), smooth=REFLECT_POW)
-                           + item[1],
-                           index + 1)
-
-    get_word_chain([], 0, 0)
-    return query_dict
+def fix_join(join, words, correction, probs):
+    joins = join.generate_joins(words)
+    all_generation.extend(joins)
+    for join in joins:
+        changed_query = " ".join(join)
+        if qc.is_correct(changed_query, join):
+            correction.append(changed_query)
+            probs.append(lm.get_prob(join))
 
 
-bor = BorTree()
-bor.load_model(tree_model_filename)
-bor.init_models(language_model_unigrams_filename, error_model_unigrams_filename, error_model_bigrams_filename)
-QUERY_VARIANTS = 5
-WORD_VARIANTS = 5
-while True:
-    print("enter:")
-    query = input()
+def fix_split(split, words, correction, probs):
+    splits = split.generate_splits(words)
+    all_generation.extend(splits)
+    for split in splits:
+        changed_query = " ".join(split)
+        if qc.is_correct(changed_query, split):
+            correction.append(changed_query)
+            probs.append(lm.get_prob(split))
 
-    words_list = query.split(" ")
-    variants = []
-    for word in words_list:
-        var_list = bor.find_best(word)[:WORD_VARIANTS]
-        variants += [var_list]
 
-    print(variants)
-    best_query = ""
-    max_score = 0
-    a = generate_fix_query(variants)
-    print("variant matrix: " + str(a))
-    query_popularity = query_str_popularity(query)
-    for key, one_variant in a.items():
-        score = fix_score(_fix=one_variant, distance=key, orig_popularity=query_popularity)
-        if score > max_score:
-            max_score = score
-            best_query = one_variant
+def correct(layout, grammar, join, split, words, correction, probs):
+    fix_layout(layout, words, correction, probs)
+    fix_grammar(grammar, words, correction, probs)
+    fix_join(join, words, correction, probs)
+    fix_split(split, words, correction, probs)
 
-    print(best_query)
-    print(' '.join(best_query[:]))
+
+if __name__ == "__main__":
+
+    MAX_ITER = 2
+
+    lm = load_obj("LanguageModel")
+    em = load_obj("ErrorModel")
+    qc = QueryClassifier(load_obj("classifier"), lm)
+
+    layoutGenerator = LayoutGenerator()
+    splitGenerator = SplitGenerator(lm)
+    joinGenerator = JoinGenerator()
+    grammarGenerator = GrammarGenerator(em, lm)
+
+    while True:
+        s = input()
+        textFormatter = TextFormatter(s)
+        words = textFormatter.get_query_list()
+        query = textFormatter.text
+        if qc.is_correct(query, words):
+            print(query)
+        else:
+            iteration = MAX_ITER
+            found = False
+            while iteration > 0 and not found:
+                iteration -= 1
+
+                correction = []
+                all_generation = []
+                probs = []
+
+                correct(layoutGenerator, grammarGenerator, joinGenerator, splitGenerator, words, correction, probs)
+
+                if len(correction) != 0:
+                    print(correction[probs.index(max(probs))])
+                    found = True
+                else:
+                    gen_prob = []
+                    for g in all_generation:
+                        gen_prob.append(lm.get_prob(g))
+                    words = all_generation[gen_prob.index(max(gen_prob))]
+                    words = list(words)
+
+            if not found:
+                print(textFormatter.format_text(words))

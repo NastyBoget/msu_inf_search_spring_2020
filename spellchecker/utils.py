@@ -1,40 +1,52 @@
-import numpy as np
+import pickle
+import re
 
 
-def levenshtein_distance(str1, str2, result='distance'):
-    m, n = len(str1), len(str2)
-    d = np.vstack((np.arange(m + 1)[np.newaxis],
-                   np.hstack((np.arange(1, n + 1)[:, np.newaxis], np.zeros((n, m))))))
-    for i in range(m):
-        for j in range(n):
-            d[j + 1, i + 1] = np.min([d[j, i + 1] + 1, d[j + 1, i] + 1, d[j, i] + int(str1[i] != str2[j])])
-    if result == 'distance':
-        return d[n, m]
-    if result == 'matrix':
-        return d
+def save_obj(obj, name ):
+    with open('obj/' + name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f)
 
 
-def split(line):
-    split_line = []
-    letters = set('ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-                  'abcdefghijklmnopqrstuvwxyz'
-                  'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЬЫЪЭЮЯ'
-                  'абвгдеёжзийклмнопрстуфхцчшщьыъэюя')
+def load_obj(name ):
+    with open('obj/' + name + '.pkl', 'rb') as f:
+        return pickle.load(f)
 
-    if not line:
-        return split_line
 
-    line = line.lower()
+class TextFormatter:
 
-    # word consists of letters
-    word = ''
-    for c in line:
-        if c in letters:
-            word += c
-        else:
-            if word:
-                split_line.append(word)
-                word = ''
-    if word:
-        split_line.append(word)
-    return split_line
+    def __init__(self, text):
+        self.text = text
+        self.init_words = None
+        self.separators = None
+
+    def get_query_list(self):
+        if self.text[-1] == u"\n":
+            self.text = self.text[:-1]
+        self.init_words = re.findall(r"(?u)\w+", self.text)
+        self.separators = re.split(r"(?u)\w+", self.text)[1:]
+
+        self.text = self.text.lower()
+        query = re.findall(r"(?u)\w+", self.text)
+
+        return query
+
+    def format_text(self, words):
+        formatted_query = ""
+        if len(words) != len(self.separators):
+            return " ".join(words)
+
+        try:
+            for i in range(len(words)):
+                word = words[i]
+                if self.init_words[i][0].isupper():
+                    w = word[0].upper()
+                    word = word[1:]
+                    word = w + word
+
+                formatted_query += word
+                formatted_query += self.separators[i]
+
+        except Exception:
+            formatted_query = " ".join(words)
+
+        return formatted_query
