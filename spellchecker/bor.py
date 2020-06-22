@@ -1,7 +1,6 @@
 # Fuzzy search in Bor realization
 
-import json
-
+import pickle as pkl
 from language_model import LanguageModel
 from error_model import ErrorModel
 
@@ -19,9 +18,13 @@ class BorTree:
         self.error_threshold = 0
         self.str = ''
 
-    def fit(self, language_model_f1, language_model_f2):
-        self.language_model.from_json(language_model_f1, language_model_f2)
+    def fit(self, language_model_f1):
+        print('bor tree is fitting')
+        self.language_model.load_unigram(language_model_f1)
+        word_num = 0
         for word in self.language_model.unigram_probabilities:
+            word_num += 1
+            print(f"\r{word_num} lines are processed...", end='', flush=True)
             if not word:
                 continue
             i, node = self.find_node(word)
@@ -32,13 +35,13 @@ class BorTree:
                 self.add_node(self.tree_size, char)
             self.tree[self.tree_size][2] = word
 
-    def from_json(self, filename):
-        with open(filename, "r") as read_file:
-            self.tree = json.loads(read_file.read())
+    def load_model(self, filename):
+        with open(filename, "rb") as read_file:
+            self.tree = pkl.load(read_file)
 
-    def to_json(self, filename):
-        with open(filename, "w") as write_file:
-            write_file.write(json.dumps(self.tree))
+    def save_model(self, filename):
+        with open(filename, "wb") as write_file:
+            pkl.dump(self.tree, write_file, protocol=pkl.HIGHEST_PROTOCOL)
 
     # if the word is the prefix then it's inserted
     # if it's the new word, find the position for inserting
@@ -56,9 +59,10 @@ class BorTree:
         self.tree[node][1][char] = self.tree_size
         self.tree.append([char, dict(), None])
 
-    def init_models(self, language_model_f1, language_model_f2, error_model_filename):
-        self.language_model.from_json(language_model_f1, language_model_f2)
-        self.error_model.from_json(error_model_filename)
+    def init_models(self, language_model_f1, error_model_f1, error_model_f2):
+        self.language_model.load_unigram(language_model_f1)
+        self.error_model.load_unigram(error_model_f1)
+        self.error_model.load_bigram(error_model_f2)
 
     def find_best(self, string):
         self.best_matches = {string: 0}

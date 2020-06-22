@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 import numpy as np
-import json
+import pickle as pkl
 from nltk import ngrams
 from utils import split, levenshtein_distance
 
@@ -27,12 +27,18 @@ class ErrorModel:
         self.unigram_default_probability = 0
 
     def fit(self, filename):
+        print('error model is fitting')
 
         with open(filename, "r") as file:
+            line_num = 0
             for line in file:
+                line_num += 1
+                if line_num > 100000:
+                    break
+                print(f"\r{line_num} lines are processed...", end='', flush=True)
                 ind = line.find('\t')
                 # it's correct query
-                if ind != -1:
+                if ind == -1:
                     continue
                 wrong = split(line[:ind])
                 right = split(line[ind + 1:])
@@ -44,15 +50,21 @@ class ErrorModel:
         self.unigram_default_probability = 1 / self.unigram_number
         self.bigram_default_probability = 1 / self.bigram_number
 
-        self.unigram_probabilities = sorted(self.unigram_probabilities)
-        self.normalize(self.unigram_probabilities)
+        self.unigram_probabilities = dict(sorted(self.unigram_probabilities.items()))
+        self.normalize('unigram')
 
-        self.bigram_probabilities = sorted(self.bigram_probabilities)
-        self.normalize(self.bigram_probabilities)
+        self.bigram_probabilities = dict(sorted(self.bigram_probabilities.items()))
+        self.normalize('bigram')
 
-    def normalize(self, statistics):  # division by sum of fixes for wrong bigram
+    def normalize(self, stat_type):  # division by sum of fixes for wrong bigram
         prev_wrong = ''
         current_fixes = {}
+        if stat_type == 'unigram':
+            statistics = self.unigram_probabilities
+        elif stat_type == 'bigram':
+            statistics = self.bigram_probabilities
+        else:
+            return
         for wrong_bigram, right_bigram in statistics:
             if wrong_bigram != prev_wrong:
                 s = sum(current_fixes.values())
@@ -127,23 +139,24 @@ class ErrorModel:
             self.bigram_number += 1
 
             self.unigram_probabilities[(wrong_bigram[0], right_bigram[0])] += 1
-            self.unigram_probabilities[(wrong_bigram[1], right_bigram[1])] += 1
             self.unigram_number += 1
 
+    def save_model(self, filename1, filename2):
+        with open(filename1, "wb") as write_file1, open(filename2, "wb") as write_file2:
+            pkl.dump((self.unigram_number, self.unigram_probabilities), write_file1, protocol=pkl.HIGHEST_PROTOCOL)
+            pkl.dump((self.bigram_number, self.bigram_probabilities), write_file2, protocol=pkl.HIGHEST_PROTOCOL)
 
-    def to_json(self, filename1, filename2):
-        with open(filename1, "w") as write_file:
-            write_file.write(json.dumps((self.unigram_number, self.unigram_probabilities)))
-        with open(filename2, "w") as write_file:
-            write_file.write(json.dumps((self.bigram_number, self.bigram_probabilities)))
-
-    def from_json(self, filename1, filename2):
-        with open(filename1, "r") as read_file:
-            (self.unigram_number, self.unigram_probabilities) = json.loads(read_file.read())
-        with open(filename2, "r") as read_file:
-            (self.bigram_number, self.bigram_probabilities) = json.loads(read_file.read())
-        self.unigram_default_probability = 1 / self.unigram_number
+    def load_bigram(self, filename):
+        with open(filename, "rb") as read_file:
+            data = pkl.load(read_file)
+            self.bigram_number, self.bigram_probabilities = data
         self.bigram_default_probability = 1 / self.bigram_number
+
+    def load_unigram(self, filename):
+        with open(filename, "rb") as read_file:
+            data = pkl.load(read_file)
+            self.unigram_number, self.unigram_probabilities = data
+            self.unigram_default_probability = 1 / self.unigram_number
 
     # return probability of this fix
     def get_probability(self, wrong, right, unigram=False):

@@ -5,9 +5,9 @@
 # P(query) = P(w_1, ..., w_n) = P(w_1|w_2) * P(w_2|w_3) * ... * P(w_n)
 
 import numpy as np
-import json
 from collections import defaultdict
 from utils import split
+import pickle as pkl
 
 
 class LanguageModel:
@@ -34,12 +34,17 @@ class LanguageModel:
 
     # computing unigram and bigram probabilities
     def fit(self, filename):
-
+        print('language model is fitting')
+        line_num = 0
         with open(filename, "r") as file:
             for line in file:
+                line_num += 1
+                if line_num > 100000:
+                    break
+                print(f"\r{line_num} lines are processed...", end='', flush=True)
                 ind = line.find('\t')
                 if ind != -1:
-                    line = line[ind + 1:]  # count correct queries
+                    line = line[ind + 1:]  # count incorrect queries
                 words = split(line)
 
                 len_words = len(words)
@@ -61,38 +66,44 @@ class LanguageModel:
 
     # compute probability of the query
     # P(query) = P(w_1, ..., w_n) = P(w_1|w_2) * P(w_2|w_3) * ... * P(w_n)
-    def get_probability(self, query):
+    def get_probability(self, query, unigram=False, smooth=1):
         words = split(query)
         len_words = len(words)
-        if len_words < 2:
-            return self.unigram_default_probability
 
         probabilities = np.zeros(len_words)
-        for i in range(len_words):
-            if i < len_words - 1:
-                if (words[i], words[i + 1]) in self.bigram_probabilities:
-                    probabilities[i] = self.bigram_probabilities[(words[i], words[i + 1])]
-                else:
-                    probabilities[i] = self.bigram_default_probability
-            else:
+        if unigram:
+            for i in range(len_words):
                 if words[i] in self.unigram_probabilities:
-                    probabilities[i] = self.unigram_probabilities[words[i]]
+                    probabilities[i] = self.unigram_probabilities[words[i]] ** smooth
                 else:
-                    probabilities[i] = self.unigram_default_probability
+                    probabilities[i] = self.unigram_default_probability ** smooth
+        else:
+            for i in range(len_words):
+                if i < len_words - 1:
+                    if (words[i], words[i + 1]) in self.bigram_probabilities:
+                        probabilities[i] = self.bigram_probabilities[(words[i], words[i + 1])] ** smooth
+                    else:
+                        probabilities[i] = self.bigram_default_probability ** smooth
+                else:
+                    if words[i] in self.unigram_probabilities:
+                        probabilities[i] = self.unigram_probabilities[words[i]] ** smooth
+                    else:
+                        probabilities[i] = self.unigram_default_probability ** smooth
         return np.prod(probabilities)
 
-    def to_json(self, filename1, filename2):
-        with open(filename1, "w") as write_file:
-            write_file.write(json.dumps((self.unigram_number, self.unigram_probabilities)))
-        with open(filename2, "w") as write_file:
-            write_file.write(json.dumps((self.bigram_number, self.bigram_probabilities)))
+    def save_model(self, filename1, filename2):
+        with open(filename1, "wb") as write_file1, open(filename2, "wb") as write_file2:
+            pkl.dump((self.unigram_number, self.unigram_probabilities), write_file1, protocol=pkl.HIGHEST_PROTOCOL)
+            pkl.dump((self.bigram_number, self.bigram_probabilities), write_file2, protocol=pkl.HIGHEST_PROTOCOL)
 
-    def from_json(self, filename1, filename2):
-
-        with open(filename1, "r") as read_file:
-            (self.unigram_number, self.unigram_probabilities) = json.loads(read_file.read())
-        with open(filename2, "r") as read_file:
-            (self.bigram_number, self.bigram_probabilities) = json.loads(read_file.read())
-
-        self.unigram_default_probability = 1 / self.unigram_number
+    def load_bigram(self, filename):
+        with open(filename, "rb") as read_file:
+            data = pkl.load(read_file)
+            self.bigram_number, self.bigram_probabilities = data
         self.bigram_default_probability = 1 / self.bigram_number
+
+    def load_unigram(self, filename):
+        with open(filename, "rb") as read_file:
+            data = pkl.load(read_file)
+            self.unigram_number, self.unigram_probabilities = data
+            self.unigram_default_probability = 1 / self.unigram_number
