@@ -2,7 +2,7 @@ import pickle
 import re
 
 
-def save_obj(obj, name ):
+def save_obj(obj, name):
     with open('obj/' + name + '.pkl', 'wb') as f:
         pickle.dump(obj, f)
 
@@ -16,18 +16,18 @@ class TextFormatter:
 
     def __init__(self, text):
         self.text = text
+        self.WORDS = re.compile(r"(?u)\w+")
         self.init_words = None
         self.separators = None
 
     def get_query_list(self):
         if self.text[-1] == u"\n":
             self.text = self.text[:-1]
-        self.init_words = re.findall(r"(?u)\w+", self.text)
-        self.separators = re.split(r"(?u)\w+", self.text)[1:]
+        self.init_words = self.WORDS.findall(self.text)
+        self.separators = self.WORDS.split(self.text)[1:]
 
         self.text = self.text.lower()
-        query = re.findall(r"(?u)\w+", self.text)
-
+        query = self.WORDS.findall(self.text)
         return query
 
     def format_text(self, words):

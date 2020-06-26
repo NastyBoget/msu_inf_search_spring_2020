@@ -5,19 +5,20 @@ class FeatureGenerator:
 
     def __init__(self, lm):
         self.lm = lm
-        self.__en_regex = re.compile(r'[a-z]')
+        self.ENG = re.compile(r'[a-z]')
+        self.BAD_CHAR = re.compile(r'[,.";\[\]~]')
 
     def generate_features(self, query, words):
         x = list()
         x.append(len(words))  # number of the words in the query
         x.append(len(query))  # number of the characters
-        x.append(self.lm.get_prob(words))  # probability of the query
+        x.append(self.lm.get_probability(words))  # probability of the query
         max_prob = -1.
         min_prob = 2.
 
         count_of_words_in_dict = 0
         for word in words:
-            prob = self.lm.get_word_prob(word)
+            prob = self.lm.get_word_probability(word)
             if prob > max_prob:
                 max_prob = prob
             if prob < min_prob:
@@ -30,10 +31,7 @@ class FeatureGenerator:
         x.append(min_prob)  # minimal probability of the word
         x.append(len(words) - count_of_words_in_dict)  # how many words are not in the dictionary
 
-        if "," in query or "." in query or \
-                "'" in query or ";" in query or \
-                "]" in query or "[" in query or \
-                "~" in query:
+        if self.BAD_CHAR.findall(query):
             x.append(1)  # bad characters in the query
         else:
             x.append(0)

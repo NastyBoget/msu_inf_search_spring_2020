@@ -12,7 +12,7 @@ def fix_layout(layout, words, correction, probs):
     formatted_query = textFormatter.format_text(changed_words)
     if qc.is_correct(formatted_query, changed_words):
         correction.append(formatted_query)
-        probs.append(lm.get_prob(changed_words))
+        probs.append(lm.get_probability(changed_words))
 
 
 def fix_grammar(grammar, words, correction, probs):
@@ -22,7 +22,7 @@ def fix_grammar(grammar, words, correction, probs):
         formatted_query = textFormatter.format_text(gramma)
         if qc.is_correct(formatted_query, gramma):
             correction.append(formatted_query)
-            probs.append(lm.get_prob(gramma))
+            probs.append(lm.get_probability(gramma))
 
 
 def fix_join(join, words, correction, probs):
@@ -32,7 +32,7 @@ def fix_join(join, words, correction, probs):
         changed_query = " ".join(join)
         if qc.is_correct(changed_query, join):
             correction.append(changed_query)
-            probs.append(lm.get_prob(join))
+            probs.append(lm.get_probability(join))
 
 
 def fix_split(split, words, correction, probs):
@@ -42,7 +42,7 @@ def fix_split(split, words, correction, probs):
         changed_query = " ".join(split)
         if qc.is_correct(changed_query, split):
             correction.append(changed_query)
-            probs.append(lm.get_prob(split))
+            probs.append(lm.get_probability(split))
 
 
 def correct(layout, grammar, join, split, words, correction, probs):
@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
     lm = load_obj("LanguageModel")
     em = load_obj("ErrorModel")
-    qc = QueryClassifier(load_obj("classifier"), lm)
+    qc = QueryClassifier(load_obj("Classifier"), lm)
 
     layoutGenerator = LayoutGenerator()
     splitGenerator = SplitGenerator(lm)
@@ -80,17 +80,18 @@ if __name__ == "__main__":
 
                 correction = []
                 all_generation = []
-                probs = []
+                probabilities = []
 
-                correct(layoutGenerator, grammarGenerator, joinGenerator, splitGenerator, words, correction, probs)
+                correct(layoutGenerator, grammarGenerator, joinGenerator, splitGenerator,
+                        words, correction, probabilities)
 
                 if len(correction) != 0:
-                    print(correction[probs.index(max(probs))])
+                    print(correction[probabilities.index(max(probabilities))])
                     found = True
                 else:
                     gen_prob = []
                     for g in all_generation:
-                        gen_prob.append(lm.get_prob(g))
+                        gen_prob.append(lm.get_probability(g))
                     words = all_generation[gen_prob.index(max(gen_prob))]
                     words = list(words)
 

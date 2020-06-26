@@ -12,8 +12,8 @@ if __name__ == "__main__":
     lm = LanguageModel(query_file)
     save_obj(lm, "LanguageModel")
 
-    trie = BorTree(lm.dict.keys())
+    tree = BorTree(lm.dict.keys())
 
-    print('\nerror model is training')
-    em = ErrorModel(trie, query_file)
+    print('error model is training')
+    em = ErrorModel(tree, query_file)
     save_obj(em, "ErrorModel")

@@ -4,76 +4,82 @@ import re
 class LanguageModel:
 
     def __init__(self, filename):
-        self.dict = {}
-        self.__count_of_word = 0.
-        self._regex = re.compile(r"\w+")
-        self.__fit(filename)
-        self.__normalize()
+        # {"word" : {"freq" : frequency_of_word, "word" : {"next_words" : frequency_of_pair}}}
+        self.dict = dict()
+        # the counter of all words in all lines
+        self.size = 0
+        self.default_frequency = 0
+        self.WORDS = re.compile(r"(?u)\w+")
+        self.fit(filename)
 
-    def __fit(self, filename):
+    def fit(self, filename):
         with open(filename) as f:
-            content = f.readlines()
+            lines = f.readlines()
         num_line = 0
-        for line in content:
+        for line in lines:
             num_line += 1
             print(f"\r{num_line} lines are processed...", end='', flush=True)
             line = line.lower()
             line = line[:-1]
             index = line.find('\t')
+            # we consider only right queries
             if index > 0:
-                line = line[index+1:]
+                line = line[index + 1:]
 
-            words = re.findall(r"(?u)\w+", line)
+            words = self.WORDS.findall(line)
             for i in range(len(words)):
                 word = words[i]
                 if word in self.dict:
-                    self.dict[word]["freq"] += 1.
+                    self.dict[word]["freq"] += 1
                 else:
-                    self.dict[word] = {"freq": 1.,
+                    self.dict[word] = {"freq": 1,
                                        "words": {}}
-                self.__count_of_word += 1
+                self.size += 1
 
                 if i != len(words) - 1:
                     if words[i + 1] in self.dict[word]["words"]:
-                        self.dict[word]["words"][words[i + 1]] += 1.
+                        self.dict[word]["words"][words[i + 1]] += 1
                     else:
-                        self.dict[word]["words"][words[i + 1]] = 1.
+                        self.dict[word]["words"][words[i + 1]] = 1
+
+        for value in self.dict.values():
+            value["freq"] /= self.size
+            pairs_count = sum(value["words"].values())
+            for word in value["words"]:
+                value["words"][word] /= pairs_count
+        self.default_frequency = 1 / self.size
         print()
 
-    def __normalize(self):
-        for key, value in self.dict.items():
-            value["freq"] /= self.__count_of_word
-            count_of_uses = sum(value["words"].values())
-            for word, freq in value["words"].items():
-                value["words"][word] /= count_of_uses
-
-    def __get_word_prob(self, w1, w2):
+    def get_word_prob(self, word1, word2):
         try:
-            w2_prob = 1e-8
-            if w2 in self.dict[w1]["words"]:
-                w2_prob = self.dict[w1]["words"][w2]
-            return self.dict[w1]["freq"] * w2_prob
+            w1_w2 = 1e-8
+            if word2 in self.dict[word1]["words"]:
+                w1_w2 = self.dict[word1]["words"][word2]
+            return w1_w2 * self.dict[word1]["freq"]
         except Exception:
-            return 1e-28
+            return self.default_frequency
 
-    def get_prob(self, query):
+    def get_probability(self, query):
+        # there isn't words in dictionary
         if len(query) == 0:
-            return 0.
-        if len(query) == 1 and not query[-1] in self.dict:
-            return 0.
+            return 0
+        if len(query) == 1 and not query[0] in self.dict:
+            return 0
 
-        prob = 1.
+        # word chain
+        # P(query) = P(w_1,...,w_n) = P(w_1|w_2) * P(w_2|w_3) * ... * P(w_n)
+        prob = 1
         for i in range(len(query) - 1):
-            w1 = query[i]
-            w2 = query[i + 1]
-            prob *= self.__get_word_prob(w1, w2)
+            word1 = query[i]
+            word2 = query[i + 1]
+            prob *= self.get_word_prob(word1, word2)
 
         if query[-1] in self.dict:
             prob *= self.dict[query[-1]]["freq"]
 
-        return prob*len(query)
+        return prob * len(query)
 
-    def get_word_prob(self, word):
+    def get_word_probability(self, word):
         if word in self.dict:
             return self.dict[word]["freq"]
         else:

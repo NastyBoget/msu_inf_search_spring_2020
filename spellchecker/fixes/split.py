@@ -16,7 +16,7 @@ class SplitGenerator:
                 split = words[0:i]
                 split.append(word[0:j])
                 split.append(word[j:])
-                split.extend(words[i+1:])
+                split.extend(words[i + 1:])
                 splits.append(split)
 
         return splits

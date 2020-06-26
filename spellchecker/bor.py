@@ -5,14 +5,10 @@ class BorTree:
 
     def __init__(self, words):
         self.tree = TreeNode()
-        self.__regex = re.compile(r"[\w\d]+")
-        self.__read(words)
+        self.read(words)
         self.em = None
 
-    def set_em(self, em):
-        self.em = em
-
-    def __read(self, words):
+    def read(self, words):
         for word in words:
             self.tree.insert(word)
 
@@ -26,14 +22,11 @@ class BorTree:
     def _search(self, node, letter, word, prev_row, res, max_lev):
         columns = len(word) + 1
         cur_row = [prev_row[0] + 1]
+        # compute levenshtein distance
         for column in range(1, columns):
             insert_cost = cur_row[column - 1] + 1
             delete_cost = prev_row[column] + 1
-
-            if word[column - 1] != letter:
-                replace_cost = prev_row[column - 1] + 1
-            else:
-                replace_cost = prev_row[column - 1]
+            replace_cost = prev_row[column - 1] + int(word[column - 1] != letter)
             cur_row.append(min(insert_cost, delete_cost, replace_cost))
 
         if cur_row[-1] <= max_lev and node.word:
@@ -48,6 +41,7 @@ class TreeNode:
 
     def __init__(self):
         self.word = None
+        # {"letter" : TreeNode}
         self.children = {}
 
     def insert(self, word):

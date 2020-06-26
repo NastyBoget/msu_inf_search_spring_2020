@@ -12,7 +12,6 @@ class JoinGenerator:
             join = words[0:i]
             join.append(words[i] + words[i + 1])
             join.extend(words[i + 2:])
-
             joins.append(join)
 
         return joins

@@ -8,30 +8,28 @@ class GrammarGenerator:
         self.lm = lm
 
     def generate_correction(self, words):
+        # [[corrections of word_1],...,[corrections of word_n]]
+        corrections = []
 
-        decart_of_correction = []
-
-        for i in range(len(words)):
-            word = words[i]
-            decart_of_correction.append([])
-
+        for word in words:
+            # it's right word
             if word in self.lm.dict:
-                decart_of_correction[i].append(word)
+                corrections.append([word])
                 continue
 
-            word_correction = self.em.get_correction(word, max_lev=1)
+            corrections.append([])
+            correction = self.em.get_correction(word, max_lev=1)
 
-            for w, lev in word_correction:
-                decart_of_correction[-1].append(w)
+            for w, _ in correction:
+                corrections[-1].append(w)
 
-            if word in self.lm.dict or len(decart_of_correction[i]) == 0:
-                decart_of_correction[i].append(word)
-
-        correction = itertools.product(*decart_of_correction)
-
-        return correction
+            # we can't fix this word
+            if len(corrections[-1]) == 0:
+                corrections[-1].append(word)
+        # all combinations of all possible fixes
+        return itertools.product(*corrections)
 
     def fix(self, query, word_idx):
-        correction_words = self.em.get_correction(query[word_idx])
-        if len(correction_words) == 0:
+        correction = self.em.get_correction(query[word_idx])
+        if len(correction) == 0:
             return query
