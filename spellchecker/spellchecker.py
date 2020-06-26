@@ -1,22 +1,19 @@
-from classifier.classifier import QueryClassifier
-from fixes.grammar import GrammarGenerator
-from fixes.join import JoinGenerator
-from fixes.layout import LayoutGenerator
-from fixes.split import SplitGenerator
+from classifier import QueryClassifier
 from utils import TextFormatter, load_obj
+from fixes import gen_fix_grammar, gen_fix_layout, gen_fix_join, gen_fix_split
 
 
-def fix_layout(layout, words, correction, probs):
-    changed_words = layout.generate_correction(words)
+def correct(lm, em, qc, words, all_generation, correction, probs):
+    # layout fixing
+    changed_words = gen_fix_layout(words)
     all_generation.append(changed_words)
     formatted_query = textFormatter.format_text(changed_words)
     if qc.is_correct(formatted_query, changed_words):
         correction.append(formatted_query)
         probs.append(lm.get_probability(changed_words))
 
-
-def fix_grammar(grammar, words, correction, probs):
-    grammas = grammar.generate_correction(words)
+    # grammar fixing
+    grammas = gen_fix_grammar(lm, em, words)
     for gramma in grammas:
         all_generation.append(gramma)
         formatted_query = textFormatter.format_text(gramma)
@@ -24,9 +21,8 @@ def fix_grammar(grammar, words, correction, probs):
             correction.append(formatted_query)
             probs.append(lm.get_probability(gramma))
 
-
-def fix_join(join, words, correction, probs):
-    joins = join.generate_joins(words)
+    # join fixing
+    joins = gen_fix_join(words)
     all_generation.extend(joins)
     for join in joins:
         changed_query = " ".join(join)
@@ -34,22 +30,14 @@ def fix_join(join, words, correction, probs):
             correction.append(changed_query)
             probs.append(lm.get_probability(join))
 
-
-def fix_split(split, words, correction, probs):
-    splits = split.generate_splits(words)
+    # split fixing
+    splits = gen_fix_split(lm, words)
     all_generation.extend(splits)
     for split in splits:
         changed_query = " ".join(split)
         if qc.is_correct(changed_query, split):
             correction.append(changed_query)
             probs.append(lm.get_probability(split))
-
-
-def correct(layout, grammar, join, split, words, correction, probs):
-    fix_layout(layout, words, correction, probs)
-    fix_grammar(grammar, words, correction, probs)
-    fix_join(join, words, correction, probs)
-    fix_split(split, words, correction, probs)
 
 
 if __name__ == "__main__":
@@ -59,11 +47,6 @@ if __name__ == "__main__":
     lm = load_obj("LanguageModel")
     em = load_obj("ErrorModel")
     qc = QueryClassifier(load_obj("Classifier"), lm)
-
-    layoutGenerator = LayoutGenerator()
-    splitGenerator = SplitGenerator(lm)
-    joinGenerator = JoinGenerator()
-    grammarGenerator = GrammarGenerator(em, lm)
 
     while True:
         s = input()
@@ -82,8 +65,7 @@ if __name__ == "__main__":
                 all_generation = []
                 probabilities = []
 
-                correct(layoutGenerator, grammarGenerator, joinGenerator, splitGenerator,
-                        words, correction, probabilities)
+                correct(lm, em, qc, words, all_generation, correction, probabilities)
 
                 if len(correction) != 0:
                     print(correction[probabilities.index(max(probabilities))])
