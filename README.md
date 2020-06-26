@@ -11,6 +11,8 @@ Technosphere 2 semester. Information search lectures and homeworks
 
 * также в папке с проектом должны лежать файлы с данными
 
+* домашнее задание спеллчекер в папке spellchecker
+
 [Видеолекции 2 семестр](https://www.youtube.com/watch?v=drphXdTSj3w&list=PLrCZzMib1e9o_BlrSB5bFkLq8h2i4pQjz)
 
 [Видеолекции 3 семестр](https://www.youtube.com/watch?v=9p_dR48gpvM&list=PLrCZzMib1e9o7YIhOfJtD1EaneGOGkN-_)
